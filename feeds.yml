@@ -1,0 +1,28 @@
+feeds:
+  - name: reuters-markets
+    url: https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best
+    category: markets
+
+  - name: cnbc-economy
+    url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258
+    category: macro
+
+  - name: yahoo-finance
+    url: https://finance.yahoo.com/news/rssindex
+    category: markets
+
+  - name: marketwatch-top
+    url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+    category: markets
+
+  - name: wsj-markets
+    url: https://feeds.a.dj.com/rss/RSSMarketsMain.xml
+    category: markets
+
+  - name: ft-markets
+    url: https://www.ft.com/markets?format=rss
+    category: markets
+
+  - name: bloomberg-markets
+    url: https://feeds.bloomberg.com/markets/news.rss
+    category: markets

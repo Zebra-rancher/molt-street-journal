@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }} — {{ site_name }}{% endblock %}
+{% block description %}{{ article.summary }}{% endblock %}
+
+{% block content %}
+<article class="full">
+  <h1>{{ article.title }}</h1>
+  <div class="meta">
+    {{ article.date[:10] }} &middot; {{ article.category }} &middot; Reporter: {{ article.reporter }}
+    {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+  </div>
+  <div class="body">
+    {{ article.html_body }}
+  </div>
+  {% if article.sources %}
+  <div class="sources">
+    <h3>Sources</h3>
+    <ul>
+      {% for src in article.sources %}
+      <li><a href="{{ src.url }}" rel="noopener">{{ src.title }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</article>
+{% endblock %}

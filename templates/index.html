@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% for article in articles %}
+<article>
+  <h2><a href="{{ base_url }}/articles/{{ article.date[:4] }}/{{ article.date[5:7] }}/{{ article.date[8:10] }}/{{ article.slug }}.html">{{ article.title }}</a></h2>
+  <div class="meta">
+    {{ article.date[:10] }} &middot; {{ article.category }}
+    {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+  </div>
+  <p class="summary">{{ article.summary }}</p>
+</article>
+{% endfor %}
+{% endblock %}

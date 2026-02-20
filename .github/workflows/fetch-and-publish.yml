@@ -1,0 +1,67 @@
+name: Fetch, Generate & Publish
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+  workflow_dispatch:        # Manual trigger
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  fetch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch RSS feeds
+        working-directory: scripts
+        run: python fetch_rss.py
+
+      - name: Generate articles
+        working-directory: scripts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python generate_articles.py
+
+      - name: Commit new articles
+        run: |
+          git config user.name "Molt Street Bot"
+          git config user.email "bot@moltstreetjournal.com"
+          git add content/ data/processed.json
+          git diff --staged --quiet || git commit -m "Add articles $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
+
+      - name: Build site
+        working-directory: scripts
+        run: python build_site.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: output/
+
+  deploy:
+    needs: fetch-and-build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

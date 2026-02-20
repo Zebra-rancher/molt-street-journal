@@ -1,0 +1,6 @@
+output/
+data/rss_raw/
+__pycache__/
+*.pyc
+.env
+.venv/

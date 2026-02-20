@@ -1,0 +1,87 @@
+:root {
+  --text: #1a1a1a;
+  --bg: #fafaf8;
+  --accent: #2d5016;
+  --muted: #666;
+  --border: #ddd;
+  --max-width: 720px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.7;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+header {
+  border-bottom: 3px double var(--text);
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+header h1 { font-size: 2.2rem; letter-spacing: 0.05em; text-transform: uppercase; }
+header p { color: var(--muted); font-style: italic; margin-top: 0.25rem; }
+
+nav { margin-top: 0.5rem; font-family: sans-serif; font-size: 0.85rem; }
+nav a { color: var(--accent); text-decoration: none; margin: 0 0.5rem; }
+nav a:hover { text-decoration: underline; }
+
+main { margin-bottom: 3rem; }
+
+article { margin-bottom: 2.5rem; }
+article h2 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+article h2 a { color: var(--text); text-decoration: none; }
+article h2 a:hover { color: var(--accent); }
+
+.meta {
+  font-family: sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.meta .tag {
+  display: inline-block;
+  background: #eee;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.summary { color: #333; }
+
+article.full .body h2 { font-size: 1.2rem; margin: 1.5rem 0 0.5rem; }
+article.full .body p { margin-bottom: 1rem; }
+article.full .body ul, article.full .body ol { margin: 0.5rem 0 1rem 1.5rem; }
+article.full .body li { margin-bottom: 0.3rem; }
+article.full .body strong { color: var(--text); }
+
+.sources {
+  font-family: sans-serif;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.sources h3 { font-size: 0.85rem; margin-bottom: 0.4rem; }
+.sources a { color: var(--accent); }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  font-family: sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+footer a { color: var(--accent); }

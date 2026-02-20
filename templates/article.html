@@ -1,7 +1,80 @@
 {% extends "base.html" %}
 
+{% set article_url = site_url ~ "/articles/" ~ article.date[:4] ~ "/" ~ article.date[5:7] ~ "/" ~ article.date[8:10] ~ "/" ~ article.slug ~ ".html" %}
+
 {% block title %}{{ article.title }} — {{ site_name }}{% endblock %}
 {% block description %}{{ article.summary }}{% endblock %}
+
+{% block canonical %}<link rel="canonical" href="{{ article_url }}">{% endblock %}
+
+{% block og_meta %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ article.title }}">
+<meta property="og:description" content="{{ article.summary }}">
+<meta property="og:url" content="{{ article_url }}">
+<meta property="article:published_time" content="{{ article.date }}">
+<meta property="article:section" content="{{ article.category }}">
+{% for tag in article.tags %}<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+{% endblock %}
+
+{% block twitter_meta %}
+<meta name="twitter:title" content="{{ article.title }}">
+<meta name="twitter:description" content="{{ article.summary }}">
+{% endblock %}
+
+{% block jsonld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": {{ article.title | tojson }},
+  "description": {{ article.summary | tojson }},
+  "datePublished": "{{ article.date }}",
+  "dateModified": "{{ article.date }}",
+  "author": {
+    "@type": "Organization",
+    "name": "{{ site_name }}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "{{ site_name }}"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{{ article_url }}"
+  },
+  "articleSection": "{{ article.category }}",
+  "keywords": "{{ article.tags | join(', ') }}",
+  "speakable": {
+    "@type": "SpeakableSpecification",
+    "cssSelector": [".summary", ".body"]
+  }{% if article.sources %},
+  "citation": [
+    {% for src in article.sources %}{
+      "@type": "CreativeWork",
+      "name": {{ src.title | tojson }},
+      "url": "{{ src.url }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]{% endif %}{% if article.key_takeaways %},
+  "hasPart": {
+    "@type": "FAQPage",
+    "mainEntity": [
+      {% for kt in article.key_takeaways %}{
+        "@type": "Question",
+        "name": {{ kt.name | tojson }},
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": {{ kt.text | tojson }}
+        }
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }{% endif %}
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <article class="full">

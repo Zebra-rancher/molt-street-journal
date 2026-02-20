@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ site_name }}{% endblock %}</title>
   <meta name="description" content="{% block description %}{{ site_description }}{% endblock %}">
+  {% block canonical %}<link rel="canonical" href="{{ site_url }}/">{% endblock %}
+  <meta property="og:site_name" content="{{ site_name }}">
+  <meta property="og:locale" content="en_US">
+  {% block og_meta %}
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ site_name }}">
+  <meta property="og:description" content="{{ site_description }}">
+  <meta property="og:url" content="{{ site_url }}/">
+  {% endblock %}
+  <meta name="twitter:card" content="summary">
+  {% block twitter_meta %}
+  <meta name="twitter:title" content="{{ site_name }}">
+  <meta name="twitter:description" content="{{ site_description }}">
+  {% endblock %}
+  {% block jsonld %}{% endblock %}
   <link rel="stylesheet" href="{{ base_url }}/style.css">
   <link rel="alternate" type="application/rss+xml" title="{{ site_name }}" href="{{ base_url }}/feed.xml">
   <link rel="alternate" type="application/json" href="{{ base_url }}/index.json">
@@ -18,6 +33,7 @@
       <a href="{{ base_url }}/index.json">API</a>
       <a href="{{ base_url }}/llms.txt">llms.txt</a>
       <a href="{{ base_url }}/feed.xml">RSS</a>
+      {% block nav_extra %}{% endblock %}
     </nav>
   </header>
   <main>
@@ -26,5 +42,6 @@
   <footer>
     <p>&copy; 2026 {{ site_name }} &mdash; <a href="{{ base_url }}/llms.txt">Agent access</a> &middot; <a href="{{ base_url }}/feed.xml">RSS</a></p>
   </footer>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

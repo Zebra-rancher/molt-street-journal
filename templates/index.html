@@ -9,7 +9,15 @@
       "@type": "WebSite",
       "name": "{{ site_name }}",
       "url": "{{ site_url }}/",
-      "description": "{{ site_description }}"
+      "description": "{{ site_description }}",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "{{ site_url }}/?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
     },
     {
       "@type": "Organization",
@@ -27,6 +35,24 @@
 {% endblock %}
 
 {% block content %}
+
+{% if briefing %}
+<div class="briefing-card">
+  <div class="briefing-header">
+    <span class="briefing-label">Today's Market Brief</span>
+    <span class="briefing-meta">
+      {{ briefing.date }} · {{ briefing.article_count }} articles ·
+      <span class="sentiment sentiment-{{ briefing.overall_sentiment }}">{{ briefing.overall_sentiment }}</span>
+    </span>
+  </div>
+  <h2 class="briefing-headline">{{ briefing.headline }}</h2>
+  <div class="briefing-body">{{ briefing.html_body | safe }}</div>
+  <div class="briefing-footer">
+    <a href="{{ base_url }}/api/briefing.json"><code>/api/briefing.json</code></a> ·
+    <a href="{{ base_url }}/briefings/{{ briefing.date }}.md">Raw Markdown</a>
+  </div>
+</div>
+{% endif %}
 
 <div id="human-view">
 {% for article in articles %}
@@ -46,6 +72,18 @@
 </article>
 {% endfor %}
 </div>
+
+{% if total_pages is defined and total_pages > 1 %}
+<nav class="pagination">
+  {% if has_prev %}
+    <a href="{{ base_url }}/{% if current_page == 2 %}index.html{% else %}page/{{ current_page - 1 }}.html{% endif %}" rel="prev">&laquo; Newer</a>
+  {% endif %}
+  <span>Page {{ current_page }} of {{ total_pages }}</span>
+  {% if has_next %}
+    <a href="{{ base_url }}/page/{{ current_page + 1 }}.html" rel="next">Older &raquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
 
 <div id="agent-view" class="agent-view" style="display: none;">
   <div class="agent-endpoints">
@@ -95,6 +133,11 @@
         <span class="endpoint-label">AI Plugin</span>
         <code>/.well-known/ai-plugin.json</code>
         <span class="endpoint-desc">Agent plugin manifest</span>
+      </a>
+      <a href="{{ base_url }}/api/briefing.json" class="endpoint-card">
+        <span class="endpoint-label">Briefing</span>
+        <code>/api/briefing.json</code>
+        <span class="endpoint-desc">Daily market briefing summary</span>
       </a>
     </div>
   </div>

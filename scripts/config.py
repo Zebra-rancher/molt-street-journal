@@ -10,6 +10,7 @@ TEMPLATES_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 FEEDS_FILE = ROOT / "feeds.yml"
 PROCESSED_FILE = DATA_DIR / "processed.json"
+BRIEFINGS_DIR = ROOT / "content" / "briefings"
 
 # Site
 SITE_NAME = "Molt Street Journal"

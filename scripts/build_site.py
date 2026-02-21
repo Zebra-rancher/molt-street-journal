@@ -15,7 +15,7 @@ from jinja2 import Environment, FileSystemLoader
 from config import (
     CONTENT_DIR, OUTPUT_DIR, TEMPLATES_DIR, STATIC_DIR,
     SITE_NAME, SITE_URL, SITE_DESCRIPTION, SITE_LANGUAGE,
-    CATEGORIES,
+    CATEGORIES, BRIEFINGS_DIR,
 )
 
 
@@ -92,6 +92,24 @@ def load_articles() -> list[dict]:
             articles.append(article)
     articles.sort(key=lambda a: a["date"], reverse=True)
     return articles
+
+
+def load_latest_briefing() -> dict | None:
+    """Load the most recent briefing from content/briefings/."""
+    if not BRIEFINGS_DIR.exists():
+        return None
+    files = sorted(BRIEFINGS_DIR.glob("*.md"), reverse=True)
+    if not files:
+        return None
+    path = files[0]
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return None
+    _, fm_raw, body = text.split("---", 2)
+    fm = yaml.safe_load(fm_raw)
+    fm["body_md"] = body.strip()
+    fm["html_body"] = markdown.markdown(body.strip(), extensions=["extra"])
+    return fm
 
 
 def _article_to_json(a: dict) -> dict:
@@ -174,13 +192,63 @@ def build_today_json(articles: list[dict]):
     )
 
 
-def build_llms_txt(articles: list[dict]) -> str:
+def build_briefing_json(briefing: dict | None):
+    """Build /api/briefing.json and /api/briefing/today.json."""
+    api_dir = OUTPUT_DIR / "api"
+    api_dir.mkdir(parents=True, exist_ok=True)
+    briefing_dir = api_dir / "briefing"
+    briefing_dir.mkdir(parents=True, exist_ok=True)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    if briefing:
+        data = {
+            "date": briefing.get("date", today),
+            "generated_at": briefing.get("generated_at", ""),
+            "available": True,
+            "article_count": briefing.get("article_count", 0),
+            "overall_sentiment": briefing.get("overall_sentiment", "neutral"),
+            "confidence": briefing.get("confidence", "low"),
+            "headline": briefing.get("headline", ""),
+            "category_breakdown": briefing.get("category_breakdown", {}),
+            "sentiment_breakdown": briefing.get("sentiment_breakdown", {}),
+            "urls": {
+                "markdown": f"{SITE_URL}/briefings/{briefing.get('date', today)}.md",
+                "html": f"{SITE_URL}/",
+            },
+        }
+    else:
+        data = {
+            "date": today,
+            "available": False,
+            "message": "No briefing available for today.",
+        }
+
+    (api_dir / "briefing.json").write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    (briefing_dir / "today.json").write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def build_llms_txt(articles: list[dict], briefing: dict | None = None) -> str:
     """Build llms.txt for agent discovery."""
     lines = [
         f"# {SITE_NAME}",
         "",
         f"> {SITE_DESCRIPTION}",
         "",
+    ]
+
+    if briefing:
+        lines.extend([
+            "## Daily Market Briefing",
+            "",
+            f"**{briefing.get('headline', '')}**",
+            f"Sentiment: {briefing.get('overall_sentiment', 'neutral')} | Articles: {briefing.get('article_count', 0)}",
+            f"- [Briefing JSON]({SITE_URL}/api/briefing.json)",
+            f"- [Briefing Markdown]({SITE_URL}/briefings/{briefing.get('date', '')}.md)",
+            "",
+        ])
+
+    lines.extend([
         "## API",
         "",
         f"- [Article Index (JSON)]({SITE_URL}/index.json): Structured index of all articles with metadata and summaries",
@@ -192,7 +260,7 @@ def build_llms_txt(articles: list[dict]) -> str:
         "",
         "## Recent Articles",
         "",
-    ]
+    ])
     for a in articles[:20]:
         date_path = f"{a['date'][:4]}/{a['date'][5:7]}/{a['date'][8:10]}"
         md_url = f"{SITE_URL}/articles/{date_path}/{a['slug']}.md"
@@ -265,6 +333,7 @@ def build():
 
     # Load articles
     articles = load_articles()
+    briefing = load_latest_briefing()
     print(f"Found {len(articles)} articles")
 
     # Set up Jinja
@@ -279,7 +348,7 @@ def build():
 
     # Build index.html
     tmpl = env.get_template("index.html")
-    (OUTPUT_DIR / "index.html").write_text(tmpl.render(**ctx, articles=articles))
+    (OUTPUT_DIR / "index.html").write_text(tmpl.render(**ctx, articles=articles, briefing=briefing))
 
     # Build each article HTML + copy raw .md
     tmpl = env.get_template("article.html")
@@ -306,6 +375,9 @@ def build():
     # Build today.json
     build_today_json(articles)
 
+    # Build briefing.json
+    build_briefing_json(briefing)
+
     # Build v1/articles.json (versioned API)
     v1_dir = OUTPUT_DIR / "v1"
     v1_dir.mkdir(parents=True, exist_ok=True)
@@ -314,7 +386,7 @@ def build():
     )
 
     # Build llms.txt
-    (OUTPUT_DIR / "llms.txt").write_text(build_llms_txt(articles))
+    (OUTPUT_DIR / "llms.txt").write_text(build_llms_txt(articles, briefing))
 
     # Build feed.xml
     feed_tmpl = env.get_template("feed.xml")
@@ -327,6 +399,13 @@ def build():
 
     # Build llms-full.txt
     (OUTPUT_DIR / "llms-full.txt").write_text(build_llms_full_txt(articles))
+
+    # Copy briefing markdown files
+    if BRIEFINGS_DIR.exists():
+        briefings_out = OUTPUT_DIR / "briefings"
+        briefings_out.mkdir(parents=True, exist_ok=True)
+        for bf in BRIEFINGS_DIR.glob("*.md"):
+            shutil.copy2(bf, briefings_out / bf.name)
 
     # Build .well-known/ai-plugin.json
     well_known_dir = OUTPUT_DIR / ".well-known"
@@ -349,6 +428,8 @@ def build():
             "articles_rss": f"{SITE_URL}/feed.xml",
             "llms_txt": f"{SITE_URL}/llms.txt",
             "llms_full_txt": f"{SITE_URL}/llms-full.txt",
+            "briefing": f"{SITE_URL}/api/briefing.json",
+            "briefing_today": f"{SITE_URL}/api/briefing/today.json",
             "sitemap": f"{SITE_URL}/sitemap.xml",
         },
     }

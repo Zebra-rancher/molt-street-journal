@@ -1,4 +1,5 @@
 feeds:
+  # --- Markets ---
   - name: reuters-markets
     url: https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best
     category: markets
@@ -26,3 +27,74 @@ feeds:
   - name: bloomberg-markets
     url: https://feeds.bloomberg.com/markets/news.rss
     category: markets
+
+  # --- Crypto ---
+  - name: coindesk
+    url: https://www.coindesk.com/arc/outboundfeeds/rss/
+    category: crypto
+
+  - name: cointelegraph
+    url: https://cointelegraph.com/rss
+    category: crypto
+
+  - name: decrypt
+    url: https://decrypt.co/feed
+    category: crypto
+
+  # --- Personal Finance ---
+  - name: cnbc-personal-finance
+    url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=21324812
+    category: personal-finance
+
+  - name: nerdwallet
+    url: https://www.nerdwallet.com/blog/feed/
+    category: personal-finance
+
+  # --- Real Estate ---
+  - name: cnbc-real-estate
+    url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=104723454
+    category: real-estate
+
+  - name: housingwire
+    url: https://www.housingwire.com/feed/
+    category: real-estate
+
+  # --- Tech ---
+  - name: techcrunch-fintech
+    url: https://techcrunch.com/category/fintech/feed/
+    category: tech
+
+  - name: reuters-tech
+    url: https://www.reutersagency.com/feed/?best-topics=tech&post_type=best
+    category: tech
+
+  # --- Commodities ---
+  - name: reuters-commodities
+    url: https://www.reutersagency.com/feed/?best-topics=commodities&post_type=best
+    category: commodities
+
+  - name: oilprice
+    url: https://oilprice.com/rss/main
+    category: commodities
+
+  # --- International ---
+  - name: ft-world
+    url: https://www.ft.com/world?format=rss
+    category: international
+
+  - name: reuters-world
+    url: https://www.reutersagency.com/feed/?best-topics=world&post_type=best
+    category: international
+
+  - name: wsj-world
+    url: https://feeds.a.dj.com/rss/RSSWorldNews.xml
+    category: international
+
+  # --- Deals ---
+  - name: reuters-deals
+    url: https://www.reutersagency.com/feed/?best-topics=deals&post_type=best
+    category: deals
+
+  - name: cnbc-deals
+    url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000113
+    category: deals

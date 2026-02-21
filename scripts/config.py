@@ -19,6 +19,21 @@ SITE_LANGUAGE = "en"
 
 # LLM
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
-MAX_ARTICLES_PER_RUN = 20
+MAX_ARTICLES_PER_RUN = 50
 ARTICLE_MIN_WORDS = 150
-ARTICLE_MAX_WORDS = 300
+ARTICLE_MAX_WORDS = 400
+SYNTHESIS_MIN_WORDS = 400
+SYNTHESIS_MAX_WORDS = 600
+
+# Categories
+CATEGORIES = [
+    "markets",
+    "macro",
+    "crypto",
+    "personal-finance",
+    "real-estate",
+    "tech",
+    "commodities",
+    "international",
+    "deals",
+]

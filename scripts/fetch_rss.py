@@ -3,6 +3,7 @@
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +11,26 @@ import feedparser
 import yaml
 
 from config import FEEDS_FILE, RSS_RAW_DIR, PROCESSED_FILE
+
+# Blocklist patterns for non-financial noise
+_BLOCKLIST_PATTERNS = re.compile(
+    r"""
+    lottery|powerball|mega.?millions|sweepstakes|jackpot|
+    murder|homicide|kidnap|assault|sex.?offend|arson|
+    kardashian|celebrity|bachelor(?:ette)?|reality.?tv|red.?carpet|
+    nfl|nba|mlb|nhl|premier.?league|world.?cup|super.?bowl|
+    horoscope|zodiac|astrology|
+    recipe|weight.?loss|diet.?tip|workout.?routine|
+    mail.?theft|porch.?pirate|missing.?person|amber.?alert
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def is_relevant(title: str, summary: str, category: str) -> bool:
+    """Return False if item matches noise blocklist patterns."""
+    text = f"{title} {summary}"
+    return not _BLOCKLIST_PATTERNS.search(text)
 
 
 def load_processed() -> set:
@@ -55,6 +76,12 @@ def fetch_feeds():
             if iid in processed:
                 continue
 
+            title = entry.get("title", "").strip()
+            summary = entry.get("summary", "").strip()[:500]
+
+            if not is_relevant(title, summary, category):
+                continue
+
             published = ""
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
@@ -63,9 +90,9 @@ def fetch_feeds():
                 "id": iid,
                 "feed": name,
                 "category": category,
-                "title": entry.get("title", "").strip(),
+                "title": title,
                 "link": entry.get("link", ""),
-                "summary": entry.get("summary", "").strip()[:500],
+                "summary": summary,
                 "published": published,
                 "fetched_at": datetime.now(timezone.utc).isoformat(),
             }

@@ -31,9 +31,15 @@
 <div id="human-view">
 {% for article in articles %}
 <article>
-  <h2><a href="{{ base_url }}/articles/{{ article.date[:4] }}/{{ article.date[5:7] }}/{{ article.date[8:10] }}/{{ article.slug }}.html">{{ article.title }}</a></h2>
+  <h2>
+    <a href="{{ base_url }}/articles/{{ article.date[:4] }}/{{ article.date[5:7] }}/{{ article.date[8:10] }}/{{ article.slug }}.html">{{ article.title }}</a>
+    {% if article.content_type == 'synthesis' %}<span class="badge badge-synthesis">Synthesis</span>{% endif %}
+  </h2>
   <div class="meta">
     {{ article.date[:10] }} &middot; {{ article.category }}
+    {% if article.sentiment and article.sentiment != 'neutral' %}
+      <span class="sentiment sentiment-{{ article.sentiment }}">{{ article.sentiment }}</span>
+    {% endif %}
     {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
   </div>
   <p class="summary">{{ article.summary }}</p>
@@ -49,6 +55,21 @@
         <span class="endpoint-label">JSON API</span>
         <code>/index.json</code>
         <span class="endpoint-desc">Structured article index with full metadata</span>
+      </a>
+      <a href="{{ base_url }}/v1/articles.json" class="endpoint-card">
+        <span class="endpoint-label">v1 API</span>
+        <code>/v1/articles.json</code>
+        <span class="endpoint-desc">Versioned stable endpoint</span>
+      </a>
+      <a href="{{ base_url }}/api/today.json" class="endpoint-card">
+        <span class="endpoint-label">Today</span>
+        <code>/api/today.json</code>
+        <span class="endpoint-desc">Articles published today (UTC)</span>
+      </a>
+      <a href="{{ base_url }}/api/category/" class="endpoint-card">
+        <span class="endpoint-label">By Category</span>
+        <code>/api/category/{name}.json</code>
+        <span class="endpoint-desc">Per-category filtered articles</span>
       </a>
       <a href="{{ base_url }}/feed.xml" class="endpoint-card">
         <span class="endpoint-label">RSS 2.0</span>
@@ -90,6 +111,9 @@
     "slug": "{{ article.slug }}",
     "date": "{{ article.date }}",
     "category": "{{ article.category }}",
+    "content_type": "{{ article.content_type }}",
+    "sentiment": "{{ article.sentiment }}",
+    "impact": "{{ article.impact }}",
     "tags": {{ article.tags | tojson }},
     "reporter": "{{ article.reporter }}",
     "summary": {{ article.summary | tojson }},

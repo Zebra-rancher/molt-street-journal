@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Generate articles from raw RSS items using Claude Haiku."""
+"""Generate articles from raw RSS items using Gemini."""
 
 import json
+import os
 import re
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from anthropic import Anthropic
+from google import genai
+from google.genai import types
 
 from config import (
-    RSS_RAW_DIR, CONTENT_DIR, HAIKU_MODEL,
+    RSS_RAW_DIR, CONTENT_DIR, GEMINI_MODEL,
     MAX_ARTICLES_PER_RUN, ARTICLE_MIN_WORDS, ARTICLE_MAX_WORDS,
     SYNTHESIS_MIN_WORDS, SYNTHESIS_MAX_WORDS,
 )
@@ -117,8 +120,8 @@ def group_items(items: list[dict]) -> list[list[dict]]:
     return groups
 
 
-def generate_article(client: Anthropic, items: list[dict]) -> dict | None:
-    """Call Claude Haiku to generate an article from RSS items."""
+def generate_article(client: genai.Client, items: list[dict]) -> dict | None:
+    """Call Gemini to generate an article from RSS items."""
     is_synthesis = len(items) >= 2
     source_text = "\n\n".join(
         f"Source: {item['title']}\nURL: {item['link']}\nSummary: {item['summary']}"
@@ -151,18 +154,27 @@ SUBCATEGORY: <specific subcategory like monetary-policy, earnings, crypto-regula
 
 <article body>"""
 
-    try:
-        response = client.messages.create(
-            model=HAIKU_MODEL,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-    except Exception as e:
-        print(f"  API error: {e}")
-        return None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+            break
+        except Exception as e:
+            if "429" in str(e) and attempt < 2:
+                wait = 45 * (attempt + 1)
+                print(f"  Rate limited, waiting {wait}s (attempt {attempt+1}/3)...")
+                time.sleep(wait)
+                continue
+            print(f"  API error: {e}")
+            return None
 
-    text = response.content[0].text.strip()
+    text = response.text.strip()
 
     # Parse structured fields from response
     lines = text.split("\n")
@@ -265,7 +277,7 @@ def save_article(article: dict):
         "sentiment": article["sentiment"],
         "impact": article["impact"],
         "subcategory": article["subcategory"],
-        "reporter": "claude-haiku",
+        "reporter": "gemini-flash",
         "summary": article["summary"],
     }
 
@@ -292,19 +304,26 @@ def run():
         return
 
     print(f"Processing {len(items)} items...")
-    client = Anthropic()
+    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("Error: Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable")
+        return
+    client = genai.Client(api_key=api_key)
     groups = group_items(items)
 
     generated = 0
-    for group in groups:
+    for idx, group in enumerate(groups):
         label = f"{group[0]['title'][:60]}..."
         if len(group) >= 2:
             label = f"[SYNTHESIS {len(group)} sources] {label}"
-        print(f"\nGenerating from: {label}")
+        print(f"\nGenerating ({idx+1}/{len(groups)}): {label}")
         article = generate_article(client, group)
         if article:
             save_article(article)
             generated += 1
+        # Rate limit: 10 req/min on free tier, 7s gap = ~8.5 req/min
+        if idx < len(groups) - 1:
+            time.sleep(7)
 
     print(f"\nGenerated {generated} articles from {len(items)} items.")
 

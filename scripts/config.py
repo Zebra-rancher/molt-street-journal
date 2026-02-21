@@ -18,7 +18,7 @@ SITE_DESCRIPTION = "Financial news for humans and agents"
 SITE_LANGUAGE = "en"
 
 # LLM
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 MAX_ARTICLES_PER_RUN = 50
 ARTICLE_MIN_WORDS = 150
 ARTICLE_MAX_WORDS = 400

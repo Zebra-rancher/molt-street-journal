@@ -33,7 +33,7 @@ jobs:
       - name: Generate articles
         working-directory: scripts
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: python generate_articles.py
 
       - name: Commit new articles

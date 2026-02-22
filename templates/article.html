@@ -16,73 +16,118 @@
 <meta property="article:section" content="{{ article.category }}">
 {% for tag in article.tags %}<meta property="article:tag" content="{{ tag }}">
 {% endfor %}
+<meta property="og:image" content="{{ site_url }}/og-default.png">
+<meta property="article:author" content="{{ site_url }}/about.html">
 {% endblock %}
 
 {% block twitter_meta %}
 <meta name="twitter:title" content="{{ article.title }}">
 <meta name="twitter:description" content="{{ article.summary }}">
+<meta name="twitter:image" content="{{ site_url }}/og-default.png">
 {% endblock %}
+
+<meta name="news_keywords" content="{{ article.tags | join(', ') }}">
 
 {% block jsonld %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "NewsArticle",
-  "headline": {{ article.title | tojson }},
-  "description": {{ article.summary | tojson }},
-  "datePublished": "{{ article.date }}",
-  "dateModified": "{{ article.date }}",
-  "author": {
-    "@type": "Organization",
-    "name": "{{ site_name }}"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "{{ site_name }}"
-  },
-  "mainEntityOfPage": {
-    "@type": "WebPage",
-    "@id": "{{ article_url }}"
-  },
-  "articleSection": "{{ article.category }}",
-  "keywords": "{{ article.tags | join(', ') }}",
-  "speakable": {
-    "@type": "SpeakableSpecification",
-    "cssSelector": [".summary", ".body"]
-  }{% if article.sources %},
-  "citation": [
-    {% for src in article.sources %}{
-      "@type": "CreativeWork",
-      "name": {{ src.title | tojson }},
-      "url": "{{ src.url }}"
-    }{% if not loop.last %},{% endif %}
-    {% endfor %}
-  ]{% endif %}{% if article.key_takeaways %},
-  "hasPart": {
-    "@type": "FAQPage",
-    "mainEntity": [
-      {% for kt in article.key_takeaways %}{
-        "@type": "Question",
-        "name": {{ kt.name | tojson }},
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": {{ kt.text | tojson }}
+  "@graph": [
+    {
+      "@type": "NewsArticle",
+      "headline": {{ article.title | tojson }},
+      "description": {{ article.summary | tojson }},
+      "datePublished": "{{ article.date }}",
+      "dateModified": "{{ article.date }}",
+      "author": {
+        "@type": "Organization",
+        "name": "{{ site_name }}"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "{{ site_name }}",
+        "url": "{{ site_url }}/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "{{ site_url }}/logo.png",
+          "width": 600,
+          "height": 60
         }
-      }{% if not loop.last %},{% endif %}
-      {% endfor %}
-    ]
-  }{% endif %}
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{ article_url }}"
+      },
+      "image": "{{ site_url }}/og-default.png",
+      "articleSection": "{{ article.category }}",
+      "keywords": "{{ article.tags | join(', ') }}",
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [".summary", ".body"]
+      }{% if article.sources %},
+      "citation": [
+        {% for src in article.sources %}{
+          "@type": "CreativeWork",
+          "name": {{ src.title | tojson }},
+          "url": "{{ src.url }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]{% endif %}
+    }{% if article.key_takeaways %},
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {% for kt in article.key_takeaways %}{
+          "@type": "Question",
+          "name": {{ kt.name | tojson }},
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": {{ kt.text | tojson }}
+          }
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }{% endif %},
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "{{ site_url }}/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "{{ article.category | replace('-', ' ') | title }}",
+          "item": "{{ site_url }}/category/{{ article.category }}.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "{{ article.title }}"
+        }
+      ]
+    }
+  ]
 }
 </script>
 {% endblock %}
 
 {% block content %}
+<nav class="breadcrumb">
+  <a href="{{ base_url }}/">Home</a> &rsaquo;
+  <a href="{{ base_url }}/category/{{ article.category }}.html">{{ article.category | replace('-', ' ') | title }}</a> &rsaquo;
+  <span>{{ article.title }}</span>
+</nav>
 <article class="full">
   <h1>{{ article.title }}</h1>
   <div class="meta">
-    {{ article.date[:10] }} &middot; {{ article.category }} &middot; Reporter: {{ article.reporter }}
+    {{ article.date[:10] }} &middot; <a href="{{ base_url }}/category/{{ article.category }}.html">{{ article.category }}</a> &middot; Reporter: {{ article.reporter }}
     {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
   </div>
+  <div class="summary"><p>{{ article.summary }}</p></div>
   <div class="body">
     {{ article.html_body }}
   </div>
@@ -92,6 +137,16 @@
     <ul>
       {% for src in article.sources %}
       <li><a href="{{ src.url }}" rel="noopener">{{ src.title }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if related_articles %}
+  <div class="related">
+    <h3>Related Articles</h3>
+    <ul>
+      {% for rel in related_articles %}
+      <li><a href="{{ base_url }}/articles/{{ rel.date[:4] }}/{{ rel.date[5:7] }}/{{ rel.date[8:10] }}/{{ rel.slug }}.html">{{ rel.title }}</a> <span class="meta">{{ rel.date[:10] }}</span></li>
       {% endfor %}
     </ul>
   </div>

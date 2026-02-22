@@ -112,6 +112,31 @@ def load_latest_briefing() -> dict | None:
     return fm
 
 
+def find_related_articles(target: dict, all_articles: list[dict], max_results: int = 5) -> list[dict]:
+    """Find related articles using tag and entity overlap (Jaccard similarity)."""
+    target_tags = set(target.get("tags", []))
+    target_entities = {e["name"].lower() for e in target.get("entities", [])}
+    scored = []
+    for a in all_articles:
+        if a["slug"] == target["slug"]:
+            continue
+        a_tags = set(a.get("tags", []))
+        a_entities = {e["name"].lower() for e in a.get("entities", [])}
+        # Jaccard similarity on tags
+        tag_union = target_tags | a_tags
+        tag_sim = len(target_tags & a_tags) / len(tag_union) if tag_union else 0
+        # Entity overlap (weighted higher)
+        ent_union = target_entities | a_entities
+        ent_sim = len(target_entities & a_entities) / len(ent_union) if ent_union else 0
+        # Same category bonus
+        cat_bonus = 0.1 if a["category"] == target["category"] else 0
+        score = tag_sim + (ent_sim * 1.5) + cat_bonus
+        if score > 0.05:
+            scored.append((score, a))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [a for _, a in scored[:max_results]]
+
+
 def _article_to_json(a: dict) -> dict:
     """Serialize an article dict to JSON-safe format (shared helper)."""
     date_path = f"{a['date'][:4]}/{a['date'][5:7]}/{a['date'][8:10]}"
@@ -235,6 +260,20 @@ def build_llms_txt(articles: list[dict], briefing: dict | None = None) -> str:
         "",
         f"> {SITE_DESCRIPTION}",
         "",
+        "## About",
+        "",
+        f"{SITE_NAME} is an AI-powered financial news service that publishes articles every 2 hours.",
+        "Articles are generated from verified RSS sources and include structured metadata.",
+        "Content is available in HTML, JSON, Markdown, and plain text formats.",
+        f"Update frequency: Every 2 hours. Current article count: {len(articles)}.",
+        "",
+        "## Usage Guidelines",
+        "",
+        f"- Attribution: Please cite '{SITE_NAME} (moltstreetjournal.com)' when referencing content",
+        "- Data freshness: Articles are timestamped in ISO 8601 format",
+        "- Rate limits: No rate limits on static endpoints",
+        "- Preferred format for agents: JSON API or Markdown files",
+        "",
     ]
 
     if briefing:
@@ -249,14 +288,33 @@ def build_llms_txt(articles: list[dict], briefing: dict | None = None) -> str:
         ])
 
     lines.extend([
-        "## API",
+        "## API Endpoints",
         "",
         f"- [Article Index (JSON)]({SITE_URL}/index.json): Structured index of all articles with metadata and summaries",
         f"- [Today's Articles (JSON)]({SITE_URL}/api/today.json): Articles published today (UTC)",
-        f"- [Category API]({SITE_URL}/api/category/): Per-category JSON endpoints (markets, macro, crypto, etc.)",
+        f"- [Category API]({SITE_URL}/api/category/): Per-category JSON endpoints",
         f"- [Versioned API]({SITE_URL}/v1/articles.json): Stable v1 endpoint for all articles",
         f"- [RSS Feed]({SITE_URL}/feed.xml): Standard RSS 2.0 feed",
         f"- [Full Content]({SITE_URL}/llms-full.txt): Complete article text for LLM consumption",
+        "",
+        "## Categories",
+        "",
+    ])
+    for cat in CATEGORIES:
+        count = sum(1 for a in articles if a["category"] == cat)
+        lines.append(f"- [{cat}]({SITE_URL}/api/category/{cat}.json): {count} articles")
+    lines.extend([
+        "",
+        "## Article Schema",
+        "",
+        "Each article in the JSON API includes:",
+        "- title, slug, date (ISO 8601)",
+        "- category, subcategory, tags",
+        "- entities (name + type: organization, person, index)",
+        "- sentiment (neutral, bullish, bearish)",
+        "- impact (low, medium, high)",
+        "- summary, sources with URLs",
+        "- Available as: HTML (.html), JSON (via API), and raw Markdown (.md)",
         "",
         "## Recent Articles",
         "",
@@ -269,7 +327,7 @@ def build_llms_txt(articles: list[dict], briefing: dict | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_sitemap(articles: list[dict]) -> str:
+def build_sitemap(articles: list[dict], total_pages: int = 1) -> str:
     """Build sitemap.xml for search engine discovery."""
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -279,7 +337,31 @@ def build_sitemap(articles: list[dict]) -> str:
         '    <changefreq>hourly</changefreq>',
         '    <priority>1.0</priority>',
         '  </url>',
+        '  <url>',
+        f'    <loc>{SITE_URL}/about.html</loc>',
+        '    <changefreq>monthly</changefreq>',
+        '    <priority>0.5</priority>',
+        '  </url>',
     ]
+    # Category pages
+    for cat in CATEGORIES:
+        lines.extend([
+            '  <url>',
+            f'    <loc>{SITE_URL}/category/{cat}.html</loc>',
+            '    <changefreq>hourly</changefreq>',
+            '    <priority>0.9</priority>',
+            '  </url>',
+        ])
+    # Paginated pages
+    for p in range(2, total_pages + 1):
+        lines.extend([
+            '  <url>',
+            f'    <loc>{SITE_URL}/page/{p}.html</loc>',
+            '    <changefreq>daily</changefreq>',
+            '    <priority>0.6</priority>',
+            '  </url>',
+        ])
+    # Articles
     for a in articles:
         date_path = f"{a['date'][:4]}/{a['date'][5:7]}/{a['date'][8:10]}"
         lines.extend([
@@ -319,6 +401,9 @@ def build_llms_full_txt(articles: list[dict]) -> str:
     return "\n".join(lines)
 
 
+ARTICLES_PER_PAGE = 25
+
+
 def build():
     """Run the full build."""
     # Clean output
@@ -344,81 +429,144 @@ def build():
         "site_description": SITE_DESCRIPTION,
         "site_language": SITE_LANGUAGE,
         "base_url": "",  # relative paths for local preview
+        "categories": CATEGORIES,
     }
 
-    # Build index.html
-    tmpl = env.get_template("index.html")
-    (OUTPUT_DIR / "index.html").write_text(tmpl.render(**ctx, articles=articles, briefing=briefing))
+    # --- Paginated homepage ---
+    total_pages = max(1, -(-len(articles) // ARTICLES_PER_PAGE))  # ceiling division
+    index_tmpl = env.get_template("index.html")
 
-    # Build each article HTML + copy raw .md
-    tmpl = env.get_template("article.html")
+    # Page 1 = index.html
+    page1_articles = articles[:ARTICLES_PER_PAGE]
+    (OUTPUT_DIR / "index.html").write_text(index_tmpl.render(
+        **ctx,
+        articles=page1_articles,
+        briefing=briefing,
+        current_page=1,
+        total_pages=total_pages,
+        has_prev=False,
+        has_next=total_pages > 1,
+    ))
+
+    # Pages 2..N
+    if total_pages > 1:
+        page_dir = OUTPUT_DIR / "page"
+        page_dir.mkdir(parents=True, exist_ok=True)
+        for page_num in range(2, total_pages + 1):
+            start = (page_num - 1) * ARTICLES_PER_PAGE
+            end = start + ARTICLES_PER_PAGE
+            page_articles = articles[start:end]
+            (page_dir / f"{page_num}.html").write_text(index_tmpl.render(
+                **ctx,
+                articles=page_articles,
+                briefing=None,  # only show briefing on page 1
+                current_page=page_num,
+                total_pages=total_pages,
+                has_prev=True,
+                has_next=page_num < total_pages,
+            ))
+    print(f"  Built {total_pages} index page(s)")
+
+    # --- Category HTML pages ---
+    try:
+        cat_tmpl = env.get_template("category.html")
+        cat_dir = OUTPUT_DIR / "category"
+        cat_dir.mkdir(parents=True, exist_ok=True)
+        for category in CATEGORIES:
+            cat_articles = [a for a in articles if a["category"] == category]
+            (cat_dir / f"{category}.html").write_text(cat_tmpl.render(
+                **ctx,
+                category=category,
+                articles=cat_articles,
+                article_count=len(cat_articles),
+            ))
+        print(f"  Built {len(CATEGORIES)} category pages")
+    except Exception as e:
+        print(f"  Warning: category pages skipped: {e}")
+
+    # --- Article HTML pages with related articles ---
+    article_tmpl = env.get_template("article.html")
     for a in articles:
         date_path = f"{a['date'][:4]}/{a['date'][5:7]}/{a['date'][8:10]}"
         article_dir = OUTPUT_DIR / "articles" / date_path
         article_dir.mkdir(parents=True, exist_ok=True)
 
-        html = tmpl.render(**ctx, article=a)
+        related = find_related_articles(a, articles)
+        html = article_tmpl.render(**ctx, article=a, related_articles=related)
         (article_dir / f"{a['slug']}.html").write_text(html)
 
         # Copy raw markdown for agent access
         shutil.copy2(a["source_path"], article_dir / f"{a['slug']}.md")
 
-    # Build index.json
+    # --- About page ---
+    try:
+        about_tmpl = env.get_template("about.html")
+        (OUTPUT_DIR / "about.html").write_text(about_tmpl.render(**ctx))
+    except Exception:
+        print("  Warning: about.html template not found, skipping")
+
+    # --- 404 page ---
+    try:
+        err_tmpl = env.get_template("404.html")
+        (OUTPUT_DIR / "404.html").write_text(err_tmpl.render(**ctx, recent_articles=articles[:5]))
+    except Exception:
+        print("  Warning: 404.html template not found, skipping")
+
+    # --- JSON APIs ---
     index_data = build_index_json(articles)
     (OUTPUT_DIR / "index.json").write_text(
         json.dumps(index_data, indent=2, ensure_ascii=False)
     )
-
-    # Build per-category JSON
     build_category_json(articles)
-
-    # Build today.json
     build_today_json(articles)
-
-    # Build briefing.json
     build_briefing_json(briefing)
 
-    # Build v1/articles.json (versioned API)
     v1_dir = OUTPUT_DIR / "v1"
     v1_dir.mkdir(parents=True, exist_ok=True)
     (v1_dir / "articles.json").write_text(
         json.dumps(index_data, indent=2, ensure_ascii=False)
     )
 
-    # Build llms.txt
+    # --- llms.txt ---
     (OUTPUT_DIR / "llms.txt").write_text(build_llms_txt(articles, briefing))
 
-    # Build feed.xml
+    # --- feed.xml ---
     feed_tmpl = env.get_template("feed.xml")
     (OUTPUT_DIR / "feed.xml").write_text(
         feed_tmpl.render(**ctx, articles=articles[:50])
     )
 
-    # Build sitemap.xml
-    (OUTPUT_DIR / "sitemap.xml").write_text(build_sitemap(articles))
+    # --- sitemap.xml ---
+    (OUTPUT_DIR / "sitemap.xml").write_text(build_sitemap(articles, total_pages))
 
-    # Build llms-full.txt
+    # --- llms-full.txt ---
     (OUTPUT_DIR / "llms-full.txt").write_text(build_llms_full_txt(articles))
 
-    # Copy briefing markdown files
+    # --- Copy briefing markdown files ---
     if BRIEFINGS_DIR.exists():
         briefings_out = OUTPUT_DIR / "briefings"
         briefings_out.mkdir(parents=True, exist_ok=True)
         for bf in BRIEFINGS_DIR.glob("*.md"):
             shutil.copy2(bf, briefings_out / bf.name)
 
-    # Build .well-known/ai-plugin.json
+    # --- .well-known/ ---
     well_known_dir = OUTPUT_DIR / ".well-known"
     well_known_dir.mkdir(exist_ok=True)
+
+    # ai-plugin.json (fixed: type changed from openapi to json, added logo/contact)
     ai_plugin = {
         "schema_version": "v1",
         "name_for_human": SITE_NAME,
         "name_for_model": "molt_street_journal",
         "description_for_human": SITE_DESCRIPTION,
         "description_for_model": "Financial news API providing articles about markets, macroeconomics, crypto, real estate, tech, commodities, and international news. Articles include structured metadata (entities, sentiment, impact), tags, sources, and are available in HTML, JSON, and Markdown formats.",
+        "logo_url": f"{SITE_URL}/og-default.png",
+        "contact_email": "hello@moltstreetjournal.com",
+        "legal_info_url": f"{SITE_URL}/about.html",
         "api": {
-            "type": "openapi",
-            "url": f"{SITE_URL}/index.json",
+            "type": "json",
+            "url": f"{SITE_URL}/v1/articles.json",
+            "documentation": f"{SITE_URL}/llms.txt",
         },
         "endpoints": {
             "articles_json": f"{SITE_URL}/index.json",
@@ -437,21 +585,66 @@ def build():
         json.dumps(ai_plugin, indent=2, ensure_ascii=False)
     )
 
-    # Build robots.txt
+    # ai.json (agent discovery standard)
+    ai_json = {
+        "version": "1.0",
+        "name": SITE_NAME,
+        "description": SITE_DESCRIPTION,
+        "url": SITE_URL,
+        "robots": f"{SITE_URL}/robots.txt",
+        "sitemap": f"{SITE_URL}/sitemap.xml",
+        "llms_txt": f"{SITE_URL}/llms.txt",
+        "llms_full_txt": f"{SITE_URL}/llms-full.txt",
+        "api": {
+            "articles": f"{SITE_URL}/v1/articles.json",
+            "today": f"{SITE_URL}/api/today.json",
+            "categories": f"{SITE_URL}/api/category/{{category}}.json",
+            "briefing": f"{SITE_URL}/api/briefing.json",
+            "rss": f"{SITE_URL}/feed.xml",
+        },
+        "contact": "hello@moltstreetjournal.com",
+    }
+    (well_known_dir / "ai.json").write_text(
+        json.dumps(ai_json, indent=2, ensure_ascii=False)
+    )
+
+    # --- robots.txt (expanded for AI crawlers) ---
     robots = f"""User-agent: *
 Allow: /
 
+# AI Crawlers - explicitly welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 Sitemap: {SITE_URL}/sitemap.xml
+
+# Agent discovery
+# llms.txt: {SITE_URL}/llms.txt
+# llms-full.txt: {SITE_URL}/llms-full.txt
 """
     (OUTPUT_DIR / "robots.txt").write_text(robots)
 
-    # CNAME for GitHub Pages
+    # CNAME
     (OUTPUT_DIR / "CNAME").write_text("moltstreetjournal.com\n")
 
     print(f"Built site to {OUTPUT_DIR}")
-    print(f"  index.html, index.json, llms.txt, llms-full.txt, feed.xml, sitemap.xml, robots.txt")
-    print(f"  api/today.json, api/category/*.json, v1/articles.json")
-    print(f"  {len(articles)} article(s)")
+    print(f"  {len(articles)} articles, {len(CATEGORIES)} category pages, {total_pages} index page(s)")
+    print(f"  index.json, llms.txt, llms-full.txt, feed.xml, sitemap.xml, robots.txt")
+    print(f"  api/today.json, api/category/*.json, v1/articles.json, api/briefing.json")
+    print(f"  .well-known/ai-plugin.json, .well-known/ai.json")
+    print(f"  about.html, 404.html")
 
 
 if __name__ == "__main__":

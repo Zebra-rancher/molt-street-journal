@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category | replace('-', ' ') | title }} News — {{ site_name }}{% endblock %}
+{% block description %}Latest {{ category | replace('-', ' ') }} news and analysis from {{ site_name }}.{% endblock %}
+
+{% block canonical %}<link rel="canonical" href="{{ site_url }}/category/{{ category }}.html">{% endblock %}
+
+{% block og_meta %}
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ category | replace('-', ' ') | title }} News — {{ site_name }}">
+<meta property="og:description" content="Latest {{ category | replace('-', ' ') }} news and analysis from {{ site_name }}.">
+<meta property="og:url" content="{{ site_url }}/category/{{ category }}.html">
+<meta property="og:image" content="{{ site_url }}/og-default.png">
+{% endblock %}
+
+{% block twitter_meta %}
+<meta name="twitter:title" content="{{ category | replace('-', ' ') | title }} News — {{ site_name }}">
+<meta name="twitter:description" content="Latest {{ category | replace('-', ' ') }} news and analysis.">
+<meta name="twitter:image" content="{{ site_url }}/og-default.png">
+{% endblock %}
+
+{% block jsonld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "{{ category | replace('-', ' ') | title }} News",
+  "description": "Latest {{ category | replace('-', ' ') }} news and analysis from {{ site_name }}.",
+  "url": "{{ site_url }}/category/{{ category }}.html",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "{{ site_name }}",
+    "url": "{{ site_url }}/"
+  },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "{{ site_url }}/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "{{ category | replace('-', ' ') | title }}"
+      }
+    ]
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<h2>{{ category | replace('-', ' ') | title }} News</h2>
+<p class="category-desc">{{ article_count }} article{{ 's' if article_count != 1 else '' }} in this category.</p>
+
+{% for article in articles %}
+<article>
+  <h2>
+    <a href="{{ base_url }}/articles/{{ article.date[:4] }}/{{ article.date[5:7] }}/{{ article.date[8:10] }}/{{ article.slug }}.html">{{ article.title }}</a>
+    {% if article.content_type == 'synthesis' %}<span class="badge badge-synthesis">Synthesis</span>{% endif %}
+  </h2>
+  <div class="meta">
+    {{ article.date[:10] }}
+    {% if article.sentiment and article.sentiment != 'neutral' %}
+      <span class="sentiment sentiment-{{ article.sentiment }}">{{ article.sentiment }}</span>
+    {% endif %}
+    {% for tag in article.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+  </div>
+  <p class="summary">{{ article.summary }}</p>
+</article>
+{% endfor %}
+
+{% if not articles %}
+<p>No articles in this category yet. Check back soon.</p>
+{% endif %}
+{% endblock %}

@@ -36,6 +36,7 @@
 
 {% block content %}
 
+<div id="human-view">
 {% if briefing %}
 <div class="briefing-card">
   <div class="briefing-header">
@@ -53,8 +54,6 @@
   </div>
 </div>
 {% endif %}
-
-<div id="human-view">
 {% for article in articles %}
 <article>
   <h2>
@@ -86,6 +85,38 @@
 {% endif %}
 
 <div id="agent-view" class="agent-view" style="display: none;">
+{% if briefing %}
+  <div class="briefing-card">
+    <h2>Daily Market Briefing</h2>
+    <div class="agent-card" style="margin-bottom: 1rem;">
+      <div class="agent-card-header">
+        <span class="agent-label">date:</span> <code>{{ briefing.date }}</code>
+        <span class="agent-label">articles:</span> <code>{{ briefing.article_count }}</code>
+        <span class="agent-label">sentiment:</span> <code>{{ briefing.overall_sentiment }}</code>
+        <span class="agent-label">confidence:</span> <code>{{ briefing.confidence }}</code>
+      </div>
+      <div class="agent-card-meta" style="margin-top: 0.4rem;">
+        <span class="agent-label">headline:</span>
+        <span class="agent-value">"{{ briefing.headline }}"</span>
+      </div>
+      <div class="agent-card-meta" style="margin-top: 0.4rem;">
+        <span class="agent-label">categories:</span>
+        {% for cat, count in briefing.category_breakdown.items() %}<code>{{ cat }}: {{ count }}</code> {% endfor %}
+      </div>
+      <div class="agent-card-meta" style="margin-top: 0.4rem;">
+        <span class="agent-label">sentiment_breakdown:</span>
+        {% for sent, count in briefing.sentiment_breakdown.items() %}<code>{{ sent }}: {{ count }}</code> {% endfor %}
+      </div>
+      <pre class="agent-briefing-raw" style="margin-top: 0.75rem; padding: 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; color: #c9d1d9;">{{ briefing.body_md }}</pre>
+      <div class="agent-card-links" style="margin-top: 0.5rem;">
+        <a href="{{ base_url }}/api/briefing.json"><code>/api/briefing.json</code></a>
+        <a href="{{ base_url }}/api/briefing/today.json"><code>/api/briefing/today.json</code></a>
+        <a href="{{ base_url }}/briefings/{{ briefing.date }}.md"><code>Raw .md</code></a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
   <div class="agent-endpoints">
     <h2>API Endpoints</h2>
     <div class="endpoint-grid">
